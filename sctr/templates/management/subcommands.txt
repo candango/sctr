@@ -1,0 +1,3 @@
+Sub-commands are:
+{% for subcommand in subcommands %}
+      {{ subcommand.name }}       {{ subcommand.description }}{% end %}

@@ -1,0 +1,5 @@
+users:
+    - name: fpiraz
+      password: "$6$rounds=5000$b6pUSwhoX5PeCxGI$.Dyzmbb1dBAhbSHDkHOKLUnTzUTmoWwN.bzirX/rbPTmMKF06HM2FJXhFF2Fw1ZSW/SnRYM/51dz.ytwhLfvF1'"
+    - name: another
+      password: "$6$rounds=5000$b6pUSwhoX5PeCxGI$.Dyzmbb1dBAhbSHDkHOKLUnTzUTmoWwN.bzirX/rbPTmMKF06HM2FJXhFF2Fw1ZSW/SnRYM/51dz.ytwhLfvF1'"

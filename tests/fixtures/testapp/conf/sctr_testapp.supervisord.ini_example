@@ -1,0 +1,21 @@
+[program:sctr_testapp]
+process_name=sctr_testapp
+command=--VIRTUALENV_PATH_HERE/bin/firenado app run
+#environment=PYTHONPATH="/opt/home/diaspora/ddosso"
+# The user must be the same running supervisord
+user=--SCTR_TESTAPP_USER_HERE--
+group=--SCTR_TESTAPP_GROUP_HERE--
+#killasgroup=true
+#startsecs=5
+#stopwaitsecs=10
+directory = --SCTR_TESTAPP_DIRECTORY_HERE--
+
+#numprocs=1
+redirect_stderr=true
+stdout_logfile=--LOG_FILE_PAHT_HERE--/sctr_testapp.log
+#stdout_logfile_maxbytes=100MB
+#stdout_logfile_backups=10
+#autostart=true
+#autorestart=true
+#startsecs=10
+#stopwaitsecs=5ent = yes
