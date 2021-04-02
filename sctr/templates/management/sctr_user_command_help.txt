@@ -1,0 +1,3 @@
+sctr user <sub-command>
+
+{% include subcommands.txt %}
