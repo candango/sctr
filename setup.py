@@ -59,7 +59,7 @@ setup(
     author_email=sctr.get_author_email(),
     install_requires=resolve_requires("requirements/basic.txt"),
     classifiers=[
-        "Development Status :: 5 - Production/Stable",
+        "Development Status :: 1 - Planning",
         "Environment :: Console",
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
@@ -70,7 +70,8 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3 :: Only",
-        "Topic :: Software Development :: Libraries"
+        "Topic :: Software Development :: Build Tools",
+        "Topic :: Software Development :: User Interfaces",
     ],
     packages=["sctr"],
 )
