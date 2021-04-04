@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from . import tasks
+from cartola import ftext
 from firenado.management import ManagementCommand
 from tornado import template
 import os
@@ -24,24 +25,56 @@ SCTR_ROOT = os.path.realpath(
 
 loader = template.Loader(os.path.join(SCTR_ROOT, "templates", "management"))
 
-sctrUserSubcommands = [
-    ManagementCommand("add", " Add User", "", tasks=tasks.UserAddTask),
-    ManagementCommand("list", "List Users", "", tasks=tasks.UserListTask),
+
+class SctrManagementCommand(ManagementCommand):
+
+    def __init__(self, name, description, cmd_help, **kwargs):
+        super(SctrManagementCommand, self).__init__(
+            name, description, cmd_help, **kwargs)
+        self.help = loader.load("sctr_command_help.txt").generate(
+            command=self)
+
+    def get_help_description(self):
+        return "%s %s" % (
+            ftext.pad(self.name, size=20),
+            ftext.columnize(self.description, columns=30,
+                            newline="\n%s" % (" " * 27)))
+
+    def get_subcommands_help(self):
+        subcommands = []
+        if self.sub_commands is not None:
+            subcommands = self.sub_commands
+        return loader.load("subcommands.txt").generate(
+            subcommands=subcommands)
+
+
+sctrProcessSubcommands = [
+    SctrManagementCommand("list", "List Process", "",
+                          tasks=tasks.ListProcessesTask),
 ]
 
+sctrUserSubcommands = [
+    SctrManagementCommand("add", " Add User", "", tasks=tasks.UserAddTask),
+    SctrManagementCommand("list", "List Users", "", tasks=tasks.UserListTask),
+    SctrManagementCommand("test", "Test User", "", tasks=tasks.UserTestTask),
+]
 
 sctrSubcommands = [
-    ManagementCommand(
+    CstrManagementCommand(
+        "proc",
+        "Process related tasks",
+        "",
+        sub_commands=sctrProcessSubcommands),
+    SctrManagementCommand(
         "user",
         "User related tasks",
-        loader.load("sctr_user_command_help.txt").generate(
-            subcommands=sctrUserSubcommands),
+        "",
         sub_commands=sctrUserSubcommands),
 ]
 
-ManagementCommand(
+SctrManagementCommand(
     "sctr",
     "Supervisord Controller related commands",
-    loader.load("sctr_command_help.txt").generate(subcommands=sctrSubcommands),
+    "",
     category="Supervisord Controller",
     sub_commands=sctrSubcommands)
