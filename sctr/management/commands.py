@@ -60,7 +60,7 @@ sctrUserSubcommands = [
 ]
 
 sctrSubcommands = [
-    CstrManagementCommand(
+    SctrManagementCommand(
         "proc",
         "Process related tasks",
         "",

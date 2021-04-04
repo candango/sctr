@@ -1,15 +1,73 @@
-from cartola import security, sysexits
+#!/usr/bin/env python
+#
+# Copyright 2021 Flavio Garcia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from cartola import security
 from firenado import service
-import functools
-import getpass
-import sys
+import pexpect
+from psutil import Process
 
 
-class UserService(service.FirenadoService):
+class DataConnectedMixin:
 
     @property
     def app_component(self):
         return self.data_connected.get_app_component()
+
+
+class CtlService(DataConnectedMixin, service.FirenadoService):
+
+    @property
+    def ctl_cmd(self):
+        return self.app_component.conf['supervisor']['ctl']
+
+    def get_processes(self, user):
+        processes = []
+        status = pexpect.run("%s status" % self.ctl_cmd).decode()
+        for line in status.split("\r\n")[:-1]:
+            denied = False
+            properties = ['details', 'status', 'name']
+            instance = {
+                'name': None,
+                'status': None,
+                'process': None,
+                'uptime': None,
+                'time': None
+            }
+            for item in filter(lambda field: field.strip() != "",
+                               line.split("  ")):
+                prop = properties.pop()
+                if prop == 'details':
+                    details = item.strip().split(",")
+                    pid = int(details[0].split(" ")[1])
+                    process = Process(pid=pid)
+                    if process.username() != user['name']:
+                        denied = True
+                        continue
+                    instance['process'] = Process(pid=pid)
+                    instance['uptime'] = " ".join(details[1].split(" ")[1:])
+                    if len(details) > 2:
+                        instance['time'] = details[2]
+                    break
+                instance[prop] = item.strip()
+            if not denied:
+                processes.append(instance)
+        return processes
+
+
+class UserService(DataConnectedMixin, service.FirenadoService):
 
     def by_username(self, username):
         if "users" in self.app_component.conf:
