@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ..cli import authenticated
 from ..services import UserService
-from cartola import security
+import argparse
+from cartola import config, sysexits
 import firenado.conf
 from firenado import service
 from firenado.management import ManagementTask
-from firenado.launcher import TornadoLauncher
 from getpass import getpass
 import logging
 import os
@@ -50,6 +51,9 @@ data_connected = None
 class DataConnectedMixin:
 
     def __init__(self):
+        firenado.conf.log['level'] = config.log_level_from_string("WARNING")
+        from firenado.launcher import TornadoLauncher
+        # Set logging basic configurations
         if sys.modules[__name__].application is None:
             launcher = TornadoLauncher(dir=firenado.conf.APP_ROOT_PATH)
             launcher.load()
@@ -60,6 +64,16 @@ class DataConnectedMixin:
     @property
     def app_component(self):
         return self.application.get_app_component()
+
+
+class AuthenticatedTask(ManagementTask):
+
+    def add_arguments(self, parser):
+        parser.add_argument("-p", "--password")
+        parser.add_argument("-u", "--user")
+        parser.add_argument("-s", "--system",
+                            action=argparse.BooleanOptionalAction,
+                            default=False)
 
 
 class UserListTask(DataConnectedMixin, ManagementTask):
@@ -73,7 +87,7 @@ class UserListTask(DataConnectedMixin, ManagementTask):
         parser.add_argument("-H", "--host", default="localhost")
         parser.add_argument("-p", "--password")
         parser.add_argument("-P", "--port", default=5432, type=int)
-        parser.add_argument("-u", "--user", default="bugahuga")
+        parser.add_argument("-u", "--user", default=None)
 
     @service.served_by(UserService)
     def run(self, namespace):
@@ -86,6 +100,29 @@ class UserListTask(DataConnectedMixin, ManagementTask):
         sys.exit(0)
 
 
+class UserTestTask(DataConnectedMixin, AuthenticatedTask):
+
+    def __init__(self, action):
+        DataConnectedMixin.__init__(self)
+        AuthenticatedTask.__init__(self, action=action)
+
+    @service.served_by(UserService)
+    @authenticated
+    def run(self, namespace):
+        username = namespace.user
+        password = namespace.password
+        if username is None:
+            username = input("Username:")
+        if password is None:
+            password = getpass("Password:")
+        if self.user_service.authenticate(username, password):
+            user = self.user_service.by_username(username)
+            print("Success: User %s authenticated." % user['name'])
+            sys.exit(sysexits.EX_OK)
+        print("ERROR: Invalid user. Please provide valid credentials.")
+        sys.exit(sysexits.EX_NOUSER)
+
+
 class UserAddTask(ManagementTask):
 
     def add_arguments(self, parser):
@@ -96,7 +133,16 @@ class UserAddTask(ManagementTask):
         parser.add_argument("-u", "--user", default="nessie")
 
     def run(self, namespace):
+        raise NotImplementedError
+
+
+class ListProcessesTask(ManagementTask):
+
+    def add_arguments(self, parser):
+        parser.add_argument("-p", "--password")
+        parser.add_argument("-u", "--user")
+
+    def run(self, namespace):
         username = input("Username:")
         password = getpass("Password:")
-
         print(username, password)
