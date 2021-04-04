@@ -1,0 +1,6 @@
+# The user sctr default password is sctr_user_pass
+# Please run change the password in production
+# TODO: Add how to change the password in production
+users:
+    - name: sctr
+      password: "$6$rounds=5000$RjgK.50/ui8otoF3$dFMGjdLRlY/qQS.FN.gWxvn9H.HKsu7YNXYjicg/M87cYJsmRMYhsZ0/JQoTIwQzJd206g.INHDi3a8PfpDNP."
