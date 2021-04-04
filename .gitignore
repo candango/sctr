@@ -112,6 +112,7 @@ venv.bak/
 .pydevproject
 
 # Config
+sctr/conf/sctr.yml
 sctr/conf/sctr.supervisord.ini
 
 # Tests
