@@ -57,7 +57,7 @@ class CtlService(DataConnectedMixin, service.FirenadoService):
                         denied = True
                         continue
                     instance['process'] = Process(pid=pid)
-                    instance['uptime'] = " ".join(details[1].split(" ")[1:])
+                    instance['uptime'] = details[1].strip().split(" ")[1]
                     if len(details) > 2:
                         instance['time'] = details[2]
                     break

@@ -15,9 +15,9 @@
 # limitations under the License.
 
 from ..cli import authenticated
-from ..services import UserService
+from ..services import CtlService, UserService
 import argparse
-from cartola import config, sysexits
+from cartola import config, ftext, sysexits
 import firenado.conf
 from firenado import service
 from firenado.management import ManagementTask
@@ -66,14 +66,23 @@ class DataConnectedMixin:
         return self.application.get_app_component()
 
 
-class AuthenticatedTask(ManagementTask):
+class AuthenticatedTask(DataConnectedMixin, ManagementTask):
+
+    def __init__(self, action):
+        DataConnectedMixin.__init__(self)
+        ManagementTask.__init__(ManagementTask, action=action)
+        self._user = None
 
     def add_arguments(self, parser):
         parser.add_argument("-p", "--password")
         parser.add_argument("-u", "--user")
         parser.add_argument("-s", "--system",
                             action=argparse.BooleanOptionalAction,
-                            default=False)
+                            default=True)
+
+    @property
+    def user(self):
+        return self._user
 
 
 class UserListTask(DataConnectedMixin, ManagementTask):
@@ -100,10 +109,9 @@ class UserListTask(DataConnectedMixin, ManagementTask):
         sys.exit(0)
 
 
-class UserTestTask(DataConnectedMixin, AuthenticatedTask):
+class UserTestTask(AuthenticatedTask):
 
     def __init__(self, action):
-        DataConnectedMixin.__init__(self)
         AuthenticatedTask.__init__(self, action=action)
 
     @service.served_by(UserService)
@@ -136,13 +144,35 @@ class UserAddTask(ManagementTask):
         raise NotImplementedError
 
 
-class ListProcessesTask(ManagementTask):
+class ListProcessesTask(AuthenticatedTask):
 
-    def add_arguments(self, parser):
-        parser.add_argument("-p", "--password")
-        parser.add_argument("-u", "--user")
+    def __init__(self, action):
+        DataConnectedMixin.__init__(self)
+        AuthenticatedTask.__init__(self, action=action)
 
+    @authenticated
+    @service.served_by(CtlService)
     def run(self, namespace):
-        username = input("Username:")
-        password = getpass("Password:")
-        print(username, password)
+        processes = self.ctl_service.get_processes(self.user)
+        if len(processes):
+            print("Supervisord is running process authorized for %s:\n" %
+                  self.user['name'])
+            print("%s%s%s%s%s" % (
+                ftext.pad("Name", size=34),
+                ftext.pad("Status", size=10),
+                ftext.pad("pid", size=10),
+                ftext.pad("Owner", size=15),
+                ftext.pad("Uptime", size=10),
+            ))
+            for instance in processes:
+                print("%s%s%s%s%s" % (
+                    ftext.pad(instance['name'], size=34),
+                    ftext.pad(instance['status'], size=10),
+                    ftext.pad(instance['process'].pid, size=10),
+                    ftext.pad(instance['process'].username(), size=15),
+                    ftext.pad(instance['uptime'], size=10),
+                ))
+            sys.exit(sysexits.EX_OK)
+        print("INFO: User \"%s\" has no access to running processes in the "
+              "supervisor." % self.user['name'])
+        sys.exit(sysexits.EX_OK)
