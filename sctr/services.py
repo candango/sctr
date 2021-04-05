@@ -44,12 +44,16 @@ class CtlService(DataConnectedMixin, service.FirenadoService):
                 'status': None,
                 'process': None,
                 'uptime': None,
-                'time': None
+                'time': None,
+                'error': None
             }
             for item in filter(lambda field: field.strip() != "",
                                line.split("  ")):
                 prop = properties.pop()
                 if prop == 'details':
+                    if instance['status'] == 'FATAL':
+                        instance['error'] = item.strip()
+                        continue
                     details = item.strip().split(",")
                     pid = int(details[0].split(" ")[1])
                     process = Process(pid=pid)

@@ -165,6 +165,13 @@ class ListProcessesTask(AuthenticatedTask):
                 ftext.pad("Uptime", size=10),
             ))
             for instance in processes:
+                if instance['status'] == "FATAL":
+                    print("%s%s%s" % (
+                        ftext.pad(instance['name'], size=34),
+                        ftext.pad(instance['status'], size=10),
+                        instance['error']
+                    ))
+                    continue
                 print("%s%s%s%s%s" % (
                     ftext.pad(instance['name'], size=34),
                     ftext.pad(instance['status'], size=10),
@@ -197,12 +204,14 @@ class RestartProcessTask(AuthenticatedTask):
         for line in self.ctl_service.restart(self.user, namespace.process):
             if counter == 0:
                 if line == "stopped":
-                    print("[OK]")
+                    print("OK")
+                if line != "stopped":
+                    print(line)
                 print("Starting %s: " % namespace.process, end='')
             if counter == 1:
                 if line == "started":
                     restarted = True
-                    print("[OK]")
+                    print("OK")
                     continue
                 print("[FAIL]")
             counter += 1
