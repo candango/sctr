@@ -176,3 +176,36 @@ class ListProcessesTask(AuthenticatedTask):
         print("INFO: User \"%s\" has no access to running processes in the "
               "supervisor." % self.user['name'])
         sys.exit(sysexits.EX_OK)
+
+
+class RestartProcessTask(AuthenticatedTask):
+
+    def __init__(self, action):
+        DataConnectedMixin.__init__(self)
+        AuthenticatedTask.__init__(self, action=action)
+
+    def add_arguments(self, parser):
+        super().add_arguments(parser)
+        parser.add_argument("process")
+
+    @authenticated
+    @service.served_by(CtlService)
+    def run(self, namespace):
+        counter = 0
+        print("Stopping %s: " % namespace.process, end='')
+        restarted = False
+        for line in self.ctl_service.restart(self.user, namespace.process):
+            if counter == 0:
+                if line == "stopped":
+                    print("[OK]")
+                print("Starting %s: " % namespace.process, end='')
+            if counter == 1:
+                if line == "started":
+                    restarted = True
+                    print("[OK]")
+                    continue
+                print("[FAIL]")
+            counter += 1
+        if restarted:
+            sys.exit(sysexits.EX_OK)
+        sys.exit(sysexits.EX_UNAVAILABLE)

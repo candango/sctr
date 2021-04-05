@@ -51,6 +51,8 @@ class SctrManagementCommand(ManagementCommand):
 sctrProcessSubcommands = [
     SctrManagementCommand("list", "List Process", "",
                           tasks=tasks.ListProcessesTask),
+    SctrManagementCommand("restart", "Restart Process", "",
+                          tasks=tasks.RestartProcessTask),
 ]
 
 sctrUserSubcommands = [

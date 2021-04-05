@@ -66,6 +66,20 @@ class CtlService(DataConnectedMixin, service.FirenadoService):
                 processes.append(instance)
         return processes
 
+    def restart(self, user, process):
+        current = None
+        for instance in self.get_processes(user):
+            if instance['name'] == process:
+                current = instance
+        if current is None:
+            return []
+        try:
+            restart = pexpect.spawn("%s restart %s" % (self.ctl_cmd, process))
+            while True:
+                restart.expect("%s: (.*)\r\n" % process)
+                yield restart.match.group(1).decode()
+        except pexpect.EOF:
+            return
 
 class UserService(DataConnectedMixin, service.FirenadoService):
 
