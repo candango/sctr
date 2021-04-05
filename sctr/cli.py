@@ -1,7 +1,6 @@
 from . import services
 from cartola import sysexits
 from firenado import service
-from firenado.util.argparse_util import FirenadoArgumentError
 import functools
 from getpass import getpass, getuser
 import sys
@@ -17,7 +16,7 @@ def authenticated(method):
         username = namespace.user
         password = namespace.password
         if username:
-            namespace.system=False
+            namespace.system = False
         if namespace.system:
             username = getuser()
         if username is None:
