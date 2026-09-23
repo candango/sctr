@@ -10,7 +10,7 @@
 /etc/systemd/system/
 └── sctr-<tenant>-<app>.service   # root-owned installed units
 
-/home/<tenant>/apps/<app>/
+/opt/home/<tenant>/apps/<app>/
 ├── releases/<release-id>/        # tenant-owned immutable releases
 └── current -> releases/<id>       # controlled active release
 ```
@@ -19,11 +19,23 @@ The exact filesystem layout may change during implementation, but the
 ownership rule does not: registry and unit files are privileged state; release
 contents belong to the tenant and execute as the tenant.
 
+The tenant identity is an existing operating-system account, not a generated
+`sctr-tenant-<id>` account. For example, an application owned by `projenv` runs
+with `User=projenv` and its resolved primary group; an application owned by
+`marcuscosta` runs with that existing account. The separate `sctr-agent`
+identity, when deployed, belongs to the control plane and must never execute a
+tenant workload.
+
+The provisioning path must verify that the selected account can traverse and
+use its registered root under `/opt/home`. The known lab parent permissions
+must not be changed blindly: use an explicitly approved parent mode or ACL
+policy and verify access as the target account before starting the unit.
+
 ## Provision an application
 
 Provisioning is an administrative operation:
 
-1. create or validate the tenant operating-system account;
+1. resolve and validate the existing tenant operating-system account;
 2. allocate the application identifier and internal unit name;
 3. create the tenant application root and release layout;
 4. validate the runtime and absolute command;
@@ -33,7 +45,9 @@ Provisioning is an administrative operation:
 8. start only when the application policy requests it.
 
 The client cannot create arbitrary units or change `User=`, `ExecStart=`,
-`WorkingDirectory=`, limits, or privileged systemd properties.
+`WorkingDirectory=`, limits, or privileged systemd properties. The client also
+cannot request a new runtime identity by supplying an arbitrary username; SCTR
+maps the application to an approved existing tenant account.
 
 ## Deploy a release
 

@@ -43,6 +43,12 @@ exact unit against the root-owned registry.
 
 ### Identity
 
+Tenant workloads use existing Linux accounts from the host account database. For
+example, `projenv` and `marcuscosta` are tenant runtime identities when the
+registry maps applications to them. SCTR must not create a parallel
+`sctr-tenant-<id>` account for an existing tenant. The `sctr-agent` identity is
+separate: it belongs to the control plane and never runs tenant workloads.
+
 A local client may use the kernel-provided peer UID on a protected Unix socket.
 A web request must use the authenticated hosting identity from a trusted
 session or service-to-service credential. A request field named `user` or
@@ -68,6 +74,8 @@ UID, or arbitrary D-Bus method from the client.
 - Tenant runtime UIDs are resolved from the operating-system account database.
 - UID 0 and other explicitly privileged identities are rejected for tenant apps.
 - Application roots are canonicalized and constrained to the tenant root.
+- The provisioner verifies traversal and ownership permissions for the existing
+  tenant root under `/opt/home`; it does not weaken the shared parent blindly.
 - Unit names are generated from validated identifiers, not concatenated from
   untrusted strings.
 - The privileged provisioner never writes to a tenant-controlled path based on
