@@ -1,2 +1,0 @@
-firenado[all]==0.2.9
-psutil==5.8.0
