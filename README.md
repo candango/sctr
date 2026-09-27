@@ -33,13 +33,16 @@ cargo build
 cargo test
 ```
 
-The repository still contains the superseded Python prototype for historical
-reference. It is not part of the Rust build or runtime.
+The superseded Python/Supervisor implementation is retained only through the
+explicitly historical audit document; it is not part of the Rust build or
+runtime.
 
 ## Usage
 
-The first executable slice provides an agent-facing command tree and detailed
-operational help:
+The first executable slice provides a registry-backed lifecycle client and
+detailed operational help. It reads the root-owned registry at
+`/etc/sctr/registry.json` and uses the systemd system manager through typed
+D-Bus calls:
 
 ```text
 sctr help
@@ -58,9 +61,11 @@ sctr app restart <app>
 sctr app logs <app>
 ```
 
-Lifecycle execution currently fails closed until the registry policy and typed
-systemd adapter are implemented. The help surface documents those prerequisites
-rather than reporting false operational success.
+List, status, start, stop, and restart resolve the application through the
+registry, authorize the current actor, call the exact registered unit, await the
+systemd job result, and report the resulting state. Logs remain contract-only
+until the bounded journal adapter is implemented. Missing or invalid registry
+state fails closed with an actionable error.
 
 ## Support
 

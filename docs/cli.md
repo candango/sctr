@@ -6,11 +6,11 @@ The SCTR CLI is a policy client, not a generic systemd frontend. Its help is an
 operational briefing: it explains the application-oriented command surface,
 the security boundary, expected effects, and the next valid action.
 
-The initial executable slice implements the command tree and help renderer. The
-lifecycle operations are visible as accepted contracts but fail closed with an
-actionable `not implemented` error until registry authorization and the systemd
-adapter exist. This prevents a bootstrap binary from pretending that a queued
-or unsupported operation succeeded.
+The initial executable slice implements the command tree, registry
+authorization, and typed systemd lifecycle adapter. List, status, start, stop,
+and restart are operational when the root-owned registry at
+`/etc/sctr/registry.json` and the systemd system manager are available. Logs
+remain contract-only until the bounded journal adapter exists.
 
 ## Navigation
 
@@ -48,10 +48,9 @@ sctr app logs <app>
 
 Clients supply a registered application identifier. They never supply a unit
 name, UID, command, path, socket, journal query, or arbitrary D-Bus method.
-Lifecycle commands must remain unavailable until the implementation can resolve
-the authenticated tenant and application through the root-owned registry,
-authorize the exact action, invoke the exact registered unit, and await the
-systemd result.
+Each implemented lifecycle command resolves the current actor and application
+through the root-owned registry, authorizes the exact action, invokes the exact
+registered unit, and awaits the systemd result.
 
 ## Output and failures
 
@@ -63,6 +62,6 @@ ERROR: <what failed>
 ACTION: <next valid action>
 ```
 
-Unknown syntax exits with status `2`. A known operation whose implementation is
-not available exits with status `1`. Neither condition mutates workflow or
-system state.
+Unknown syntax exits with status `2`. A known operation whose registry,
+authorization, or systemd boundary is unavailable exits with status `1` and
+fails closed. Neither condition reports a false success.

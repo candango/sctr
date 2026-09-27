@@ -19,6 +19,33 @@ The exact filesystem layout may change during implementation, but the
 ownership rule does not: registry and unit files are privileged state; release
 contents belong to the tenant and execute as the tenant.
 
+The first lifecycle slice reads `/etc/sctr/registry.json`. It must be
+root-owned, not tenant-writable, and contain only validated mappings. A minimal
+entry is:
+
+```json
+{
+  "applications": [
+    {
+      "id": "api",
+      "tenant": "projenv",
+      "uid": 2000,
+      "gid": 2000,
+      "user": "projenv",
+      "group": "projenv",
+      "unit": "sctr-projenv-api.service",
+      "root": "/opt/home/projenv/apps/api",
+      "actions": ["start", "stop", "restart", "status"]
+    }
+  ]
+}
+```
+
+The CLI derives the actor UID from the kernel process status. A matching tenant
+UID may operate its registered application; root is reserved for authorized
+administrative use. The client never supplies or overrides the registry path,
+unit, identity, command, or root.
+
 The tenant identity is an existing operating-system account, not a generated
 `sctr-tenant-<id>` account. For example, an application owned by `projenv` runs
 with `User=projenv` and its resolved primary group; an application owned by
