@@ -8,3 +8,9 @@ description = "A policy-controlled systemd lifecycle service for tenant applicat
 publish = false
 
 [dependencies]
+async-io = "2.6"
+futures-lite = "2.6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+zbus = { version = "~5.13.0", default-features = false, features = ["async-io"] }

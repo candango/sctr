@@ -72,7 +72,7 @@ fn nested_help_uses_the_same_command_tree() {
 }
 
 #[test]
-fn planned_lifecycle_operations_fail_without_side_effects() {
+fn lifecycle_operations_fail_closed_without_registry() {
     let output = sctr(&["app", "start", "api"]);
 
     assert_eq!(output.status.code(), Some(1));
@@ -80,7 +80,7 @@ fn planned_lifecycle_operations_fail_without_side_effects() {
     let error = stderr(&output);
     assert!(error.contains("ERROR:"), "{error}");
     assert!(error.contains("ACTION:"), "{error}");
-    assert!(error.contains("not implemented"), "{error}");
+    assert!(error.contains("cannot read registry"), "{error}");
 }
 
 #[test]

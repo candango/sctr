@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-use crate::{EXIT_FAILURE, EXIT_USAGE};
+use crate::{EXIT_FAILURE, EXIT_USAGE, registry::Action, runtime::Runtime};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Availability {
@@ -65,10 +65,10 @@ const NO_CHILDREN: &[CommandSpec] = &[];
 
 const APP_LIST: CommandSpec = CommandSpec {
     name: "list",
-    summary: "List applications visible to the authenticated tenant",
+    summary: "List applications visible to the current actor",
     usage: "sctr app list",
-    role: "Resolve the authenticated tenant and list only applications owned by that tenant.",
-    availability: Availability::ContractOnly,
+    role: "Resolve the current actor and list only applications owned by that tenant or administrator.",
+    availability: Availability::Available,
     prerequisites: &[
         "An authenticated local or service identity must resolve to one tenant.",
         "The root-owned application registry must be available.",
@@ -88,7 +88,7 @@ const APP_STATUS: CommandSpec = CommandSpec {
     summary: "Show status for one registered application",
     usage: "sctr app status <app>",
     role: "Resolve one tenant-owned application to its exact unit and return scoped service state.",
-    availability: Availability::ContractOnly,
+    availability: Availability::Available,
     prerequisites: &[
         "The application identifier must be registered to the authenticated tenant.",
         "The systemd adapter must be available with a bounded deadline.",
@@ -108,7 +108,7 @@ const APP_START: CommandSpec = CommandSpec {
     summary: "Start one registered application",
     usage: "sctr app start <app>",
     role: "Authorize a tenant application and start its exact registered systemd unit.",
-    availability: Availability::ContractOnly,
+    availability: Availability::Available,
     prerequisites: &[
         "The application must belong to the authenticated tenant and allow start.",
         "The registry must map it to one exact root-owned unit.",
@@ -128,7 +128,7 @@ const APP_STOP: CommandSpec = CommandSpec {
     summary: "Stop one registered application",
     usage: "sctr app stop <app>",
     role: "Authorize a tenant application and stop its complete systemd service cgroup.",
-    availability: Availability::ContractOnly,
+    availability: Availability::Available,
     prerequisites: &[
         "The application must belong to the authenticated tenant and allow stop.",
         "The registry must map it to one exact root-owned unit.",
@@ -148,7 +148,7 @@ const APP_RESTART: CommandSpec = CommandSpec {
     summary: "Restart one registered application",
     usage: "sctr app restart <app>",
     role: "Authorize a tenant application and restart its exact registered systemd unit.",
-    availability: Availability::ContractOnly,
+    availability: Availability::Available,
     prerequisites: &[
         "The application must belong to the authenticated tenant and allow restart.",
         "The registry must map it to one exact root-owned unit.",
@@ -204,7 +204,7 @@ const APP_COMMAND: CommandSpec = CommandSpec {
     ],
     effects: &[
         "Accepts application identifiers only; internal units and runtime identities remain server-owned.",
-        "Delegates only typed, authorized operations after the lifecycle implementation is available.",
+        "Delegates only typed, authorized operations through the registry and systemd adapter.",
     ],
     examples: &["sctr app list", "sctr help app restart"],
     next_action: "Run 'sctr help app <operation>' before invoking a lifecycle operation.",
@@ -241,6 +241,15 @@ const ROOT_GROUPS: &[CommandGroup] = &[
 ];
 
 pub(crate) fn dispatch(args: &[String]) -> Result<String, CliError> {
+    dispatch_with_runtime(args, None)
+}
+
+pub(crate) fn dispatch_system(args: &[String]) -> Result<String, CliError> {
+    let runtime = Runtime::system().map_err(runtime_error)?;
+    dispatch_with_runtime(args, Some(&runtime))
+}
+
+fn dispatch_with_runtime(args: &[String], runtime: Option<&Runtime>) -> Result<String, CliError> {
     if args.is_empty() {
         return Ok(render_root_help());
     }
@@ -254,7 +263,7 @@ pub(crate) fn dispatch(args: &[String]) -> Result<String, CliError> {
             format!("unknown global option {option:?}"),
             "Run 'sctr help' to inspect supported global options.",
         )),
-        _ => dispatch_command(args),
+        _ => dispatch_command(args, runtime),
     }
 }
 
@@ -279,7 +288,7 @@ fn render_help(path: &[String]) -> Result<String, CliError> {
     Ok(render_command_help(path, command))
 }
 
-fn dispatch_command(args: &[String]) -> Result<String, CliError> {
+fn dispatch_command(args: &[String], runtime: Option<&Runtime>) -> Result<String, CliError> {
     if matches!(args.last().map(String::as_str), Some("-h" | "--help")) {
         return render_help(&args[..args.len() - 1]);
     }
@@ -293,12 +302,16 @@ fn dispatch_command(args: &[String]) -> Result<String, CliError> {
 
     match command.behavior {
         Behavior::Help => render_help(&args[1..]),
-        Behavior::Group => dispatch_group(command, args),
-        Behavior::Lifecycle => dispatch_lifecycle(command, &args[1..], &[command.name]),
+        Behavior::Group => dispatch_group(command, args, runtime),
+        Behavior::Lifecycle => dispatch_lifecycle(command, &args[1..], &[command.name], runtime),
     }
 }
 
-fn dispatch_group(command: &CommandSpec, args: &[String]) -> Result<String, CliError> {
+fn dispatch_group(
+    command: &CommandSpec,
+    args: &[String],
+    runtime: Option<&Runtime>,
+) -> Result<String, CliError> {
     let Some(operation_name) = args.get(1) else {
         return Err(CliError::usage(
             format!("{} requires an operation", command.name),
@@ -319,28 +332,87 @@ fn dispatch_group(command: &CommandSpec, args: &[String]) -> Result<String, CliE
         ));
     };
 
-    dispatch_lifecycle(operation, &args[2..], &[command.name, operation.name])
+    dispatch_lifecycle(
+        operation,
+        &args[2..],
+        &[command.name, operation.name],
+        runtime,
+    )
 }
 
 fn dispatch_lifecycle(
     command: &CommandSpec,
-    _args: &[String],
+    args: &[String],
     path: &[&str],
+    runtime: Option<&Runtime>,
 ) -> Result<String, CliError> {
     let command_path = path.join(" ");
-    let message = match command.availability {
-        Availability::Available => format!("'sctr {command_path}' has no lifecycle handler"),
-        Availability::ContractOnly => {
-            format!("'sctr {command_path}' is not implemented in this bootstrap slice")
-        }
+    let Some(runtime) = runtime else {
+        return Err(CliError::unavailable(
+            format!("'sctr {command_path}' requires the live runtime"),
+            "Run the executable with its registry and systemd manager available.",
+        ));
     };
 
-    Err(CliError::unavailable(
-        message,
-        format!(
-            "Run 'sctr help {command_path}' to inspect its contract; implement the registry policy and typed systemd boundary before enabling it."
-        ),
-    ))
+    if command.availability == Availability::ContractOnly {
+        return Err(CliError::unavailable(
+            format!("'sctr {command_path}' is not implemented in this slice"),
+            format!("Run 'sctr help {command_path}' to inspect its contract."),
+        ));
+    }
+
+    match command.name {
+        "list" => {
+            if !args.is_empty() {
+                return Err(CliError::usage(
+                    "app list does not accept an application identifier",
+                    "Run 'sctr app list' without additional arguments.",
+                ));
+            }
+            runtime.list().map_err(runtime_error)
+        }
+        "status" | "start" | "stop" | "restart" => {
+            let Some(application_id) = args.first() else {
+                return Err(CliError::usage(
+                    format!("app {} requires an application identifier", command.name),
+                    format!(
+                        "Run 'sctr help app {}' to inspect the command contract.",
+                        command.name
+                    ),
+                ));
+            };
+            if args.len() != 1 {
+                return Err(CliError::usage(
+                    format!("app {} accepts one application identifier", command.name),
+                    format!(
+                        "Run 'sctr help app {}' to inspect the command contract.",
+                        command.name
+                    ),
+                ));
+            }
+            let action = match command.name {
+                "status" => Action::Status,
+                "start" => Action::Start,
+                "stop" => Action::Stop,
+                "restart" => Action::Restart,
+                _ => unreachable!("matched lifecycle command"),
+            };
+            runtime
+                .run_action(action, application_id)
+                .map_err(runtime_error)
+        }
+        _ => Err(CliError::unavailable(
+            format!("'sctr {command_path}' has no lifecycle handler"),
+            format!("Run 'sctr help {command_path}' to inspect its contract."),
+        )),
+    }
+}
+
+fn runtime_error(error: impl std::fmt::Display) -> CliError {
+    CliError::unavailable(
+        format!("runtime operation failed: {error}"),
+        "Check the root-owned registry and the systemd system manager, then retry.",
+    )
 }
 
 fn find_command(path: &[String]) -> Option<&'static CommandSpec> {
@@ -391,7 +463,7 @@ fn render_root_help() -> String {
     );
     line!(
         &mut output,
-        "  The bootstrap command tree is available; lifecycle execution remains disabled until its policy and adapter exist."
+        "  Registry-backed start, stop, restart, status, and list use the typed systemd adapter; logs remain contract-only."
     );
     line!(&mut output);
     line!(&mut output, "CONTROL FLOW");
@@ -547,10 +619,13 @@ mod tests {
     }
 
     #[test]
-    fn lifecycle_commands_are_fail_closed() {
+    fn lifecycle_commands_expose_only_implemented_operations() {
         for operation in APP_OPERATIONS {
-            assert_eq!(operation.availability, Availability::ContractOnly);
             assert_eq!(operation.behavior, Behavior::Lifecycle);
         }
+        for operation in [APP_LIST, APP_STATUS, APP_START, APP_STOP, APP_RESTART] {
+            assert_eq!(operation.availability, Availability::Available);
+        }
+        assert_eq!(APP_LOGS.availability, Availability::ContractOnly);
     }
 }
